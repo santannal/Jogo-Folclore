@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -145,6 +145,21 @@
       margin: 1rem 0;
     }
 
+    .game-controls {
+      position: fixed;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      z-index: 1000;
+      background: rgba(0,0,0,0.8);
+      padding: 1rem;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+
     .player-area {
       display: grid;
       grid-template-columns: 200px 1fr 200px;
@@ -213,10 +228,9 @@
     }
 
     .battlefield {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: start;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
       background: linear-gradient(145deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2));
       border-radius: 20px;
       padding: 2rem;
@@ -224,11 +238,16 @@
       min-height: 300px;
     }
 
-    .played-cards {
+    .current-card {
       display: flex;
       flex-direction: column;
+      align-items: center;
       gap: 1rem;
-      min-height: 200px;
+    }
+
+    .current-card h4 {
+      margin: 0;
+      font-size: 1.1rem;
     }
 
 
@@ -352,12 +371,7 @@
       border: 2px solid #ffcc02;
     }
 
-    .game-controls {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin: 1rem 0;
-    }
+
 
     .victory-screen {
       text-align: center;
@@ -497,7 +511,7 @@
               <div class="health-fill" id="player2-health"></div>
               <div class="bar-text" id="player2-health-text">100/100</div>
             </div>
-            <div style="font-size: 0.9rem;">🃏 <span id="player2-cards">5</span> cartas</div>
+            <div style="font-size: 0.9rem;">🃏 <span id="player2-cards">5</span> cartas | 📊 <span id="player2-played">0</span>/20</div>
           </div>
           <div class="hand" id="player2-hand" style="opacity: 0.3;">
             <!-- Cartas do jogador 2 (ocultas) -->
@@ -507,12 +521,20 @@
 
         <!-- Campo de Batalha -->
         <div class="battlefield">
-          <div class="played-cards" id="player1-played">
-            <h4 style="text-align: center; color: #4169e1;">Cartas do Jogador 1</h4>
+          <div class="current-card" id="player1-current">
+            <h4 style="color: #4169e1;">Jogador 1</h4>
+            <div id="player1-card-slot" style="min-height: 160px; display: flex; align-items: center; justify-content: center; opacity: 0.5;">
+              Aguardando carta...
+            </div>
           </div>
           
-          <div class="played-cards" id="player2-played">
-            <h4 style="text-align: center; color: #dc3545;">Cartas do Jogador 2</h4>
+          <div style="font-size: 3rem; color: #ff6b35;">⚔️</div>
+          
+          <div class="current-card" id="player2-current">
+            <h4 style="color: #dc3545;">Jogador 2</h4>
+            <div id="player2-card-slot" style="min-height: 160px; display: flex; align-items: center; justify-content: center; opacity: 0.5;">
+              Aguardando carta...
+            </div>
           </div>
         </div>
 
@@ -525,7 +547,7 @@
               <div class="health-fill" id="player1-health"></div>
               <div class="bar-text" id="player1-health-text">120/120</div>
             </div>
-            <div style="font-size: 0.9rem;">🃏 <span id="player1-cards">5</span> cartas</div>
+            <div style="font-size: 0.9rem;">🃏 <span id="player1-cards">5</span> cartas | 📊 <span id="player1-played">0</span>/20</div>
           </div>
           <div class="hand" id="player1-hand">
             <!-- Cartas do jogador 1 -->
@@ -559,11 +581,12 @@
     // Estado do jogo
     let gameState = {
       currentScreen: 'menu',
-      player1: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [] },
-      player2: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [] },
+      player1: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [], cardsPlayed: 0 },
+      player2: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [], cardsPlayed: 0 },
       currentTurn: 1,
       selectedCard: null,
-      gameStarted: false
+      gameStarted: false,
+      maxCardsPerPlayer: 20
     };
 
     // Dados dos personagens
@@ -708,11 +731,13 @@
       gameState.player1.maxHealth = char1.health;
       gameState.player1.hand = [...char1.cards];
       gameState.player1.playedCards = [];
+      gameState.player1.cardsPlayed = 0;
       
       gameState.player2.health = char2.health;
       gameState.player2.maxHealth = char2.health;
       gameState.player2.hand = [...char2.cards];
       gameState.player2.playedCards = [];
+      gameState.player2.cardsPlayed = 0;
       
       gameState.currentTurn = 1;
       gameState.selectedCard = null;
@@ -760,8 +785,9 @@
       const playerData = gameState[`player${player}`];
       const handElement = document.getElementById(`player${player}-hand`);
       
-      // Atualiza contador de cartas
+      // Atualiza contador de cartas (sempre 5 cartas disponíveis)
       document.getElementById(`player${player}-cards`).textContent = playerData.hand.length;
+      document.getElementById(`player${player}-played`).textContent = playerData.cardsPlayed;
       
       // Se é o turno do jogador, mostra as cartas
       if (player === gameState.currentTurn) {
@@ -830,9 +856,14 @@
       const opponent = gameState[`player${gameState.currentTurn === 1 ? 2 : 1}`];
       const card = currentPlayer.hand[gameState.selectedCard];
       
-      // Remove carta da mão
-      currentPlayer.hand.splice(gameState.selectedCard, 1);
-      currentPlayer.playedCards.push(card);
+      // Verifica se o jogador ainda pode jogar cartas
+      if (currentPlayer.cardsPlayed >= gameState.maxCardsPerPlayer) {
+        return;
+      }
+      
+      // Não remove a carta da mão, apenas adiciona às cartas jogadas
+      currentPlayer.playedCards.push({...card});
+      currentPlayer.cardsPlayed++;
       
       // Aplica efeitos da carta
       applyCardEffect(card, gameState.currentTurn);
@@ -883,6 +914,15 @@
       gameState.selectedCard = null;
       document.getElementById('play-card-btn').disabled = true;
       
+      // Verifica se o jogador atual atingiu o limite de cartas
+      const currentPlayer = gameState[`player${gameState.currentTurn}`];
+      if (currentPlayer.cardsPlayed >= gameState.maxCardsPerPlayer) {
+        document.getElementById('play-card-btn').disabled = true;
+        document.getElementById('play-card-btn').textContent = 'Limite Atingido';
+      } else {
+        document.getElementById('play-card-btn').textContent = 'Jogar Carta';
+      }
+      
       // Atualiza interface
       updateGameUI();
     }
@@ -894,41 +934,45 @@
     }
 
     function updatePlayedCards() {
-      // Atualiza cartas jogadas do jogador 1
-      const player1Played = document.getElementById('player1-played');
-      player1Played.innerHTML = '<h4 style="text-align: center; color: #4169e1;">Cartas do Jogador 1</h4>';
+      // Mostra apenas a última carta jogada de cada jogador
+      const player1Slot = document.getElementById('player1-card-slot');
+      const player2Slot = document.getElementById('player2-card-slot');
       
-      gameState.player1.playedCards.forEach(card => {
-        const cardElement = document.createElement('div');
-        cardElement.className = 'played-card';
-        cardElement.innerHTML = `
-          <div class="card-icon">${card.icon}</div>
-          <div class="card-name">${card.name}</div>
-          <div class="card-stats">
-            <span>⚔️${card.attack}</span>
-            <span>🛡️${card.defense}</span>
+      if (gameState.player1.playedCards.length > 0) {
+        const lastCard = gameState.player1.playedCards[gameState.player1.playedCards.length - 1];
+        player1Slot.innerHTML = `
+          <div class="played-card">
+            <div class="card-icon">${lastCard.icon}</div>
+            <div class="card-name">${lastCard.name}</div>
+            <div class="card-stats">
+              <span>⚔️${lastCard.attack}</span>
+              <span>🛡️${lastCard.defense}</span>
+            </div>
           </div>
         `;
-        player1Played.appendChild(cardElement);
-      });
+        player1Slot.style.opacity = '1';
+      } else {
+        player1Slot.innerHTML = 'Aguardando carta...';
+        player1Slot.style.opacity = '0.5';
+      }
       
-      // Atualiza cartas jogadas do jogador 2
-      const player2Played = document.getElementById('player2-played');
-      player2Played.innerHTML = '<h4 style="text-align: center; color: #dc3545;">Cartas do Jogador 2</h4>';
-      
-      gameState.player2.playedCards.forEach(card => {
-        const cardElement = document.createElement('div');
-        cardElement.className = 'played-card';
-        cardElement.innerHTML = `
-          <div class="card-icon">${card.icon}</div>
-          <div class="card-name">${card.name}</div>
-          <div class="card-stats">
-            <span>⚔️${card.attack}</span>
-            <span>🛡️${card.defense}</span>
+      if (gameState.player2.playedCards.length > 0) {
+        const lastCard = gameState.player2.playedCards[gameState.player2.playedCards.length - 1];
+        player2Slot.innerHTML = `
+          <div class="played-card">
+            <div class="card-icon">${lastCard.icon}</div>
+            <div class="card-name">${lastCard.name}</div>
+            <div class="card-stats">
+              <span>⚔️${lastCard.attack}</span>
+              <span>🛡️${lastCard.defense}</span>
+            </div>
           </div>
         `;
-        player2Played.appendChild(cardElement);
-      });
+        player2Slot.style.opacity = '1';
+      } else {
+        player2Slot.innerHTML = 'Aguardando carta...';
+        player2Slot.style.opacity = '0.5';
+      }
     }
 
 
@@ -940,14 +984,12 @@
       } else if (gameState.player2.health <= 0) {
         endGame(1);
         return true;
-      } else if (gameState.player1.hand.length === 0 && gameState.player2.hand.length === 0) {
-        // Empate ou vitória por pontos
-        const player1Score = gameState.player1.health + gameState.player1.playedCards.reduce((s, c) => s + c.attack + c.defense, 0);
-        const player2Score = gameState.player2.health + gameState.player2.playedCards.reduce((s, c) => s + c.attack + c.defense, 0);
-        
-        if (player1Score > player2Score) {
+      } else if (gameState.player1.cardsPlayed >= gameState.maxCardsPerPlayer && 
+                 gameState.player2.cardsPlayed >= gameState.maxCardsPerPlayer) {
+        // Ambos jogadores atingiram o limite - quem tem mais vida ganha
+        if (gameState.player1.health > gameState.player2.health) {
           endGame(1);
-        } else if (player2Score > player1Score) {
+        } else if (gameState.player2.health > gameState.player1.health) {
           endGame(2);
         } else {
           endGame(0); // Empate
@@ -976,15 +1018,16 @@
     function restartGame() {
       gameState = {
         currentScreen: 'menu',
-        player1: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [] },
-        player2: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [] },
+        player1: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [], cardsPlayed: 0 },
+        player2: { character: null, health: 100, maxHealth: 100, hand: [], playedCards: [], cardsPlayed: 0 },
         currentTurn: 1,
         selectedCard: null,
-        gameStarted: false
+        gameStarted: false,
+        maxCardsPerPlayer: 20
       };
       
       showCharacterSelect();
     }
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'995dd8edf0bdb559',t:'MTc2MTY5MDMwOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'995e15cbf5247e15',t:'MTc2MTY5MjgwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
